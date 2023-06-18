@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+    <link rel="stylesheet" href="style.css" />
+    <!--script type="module" src="script.js"></script-->
+</head>
+
+<body>
+    <div class="gameboy-container">
+        <div id="gameboy-case" class="gameboy-case">
+            <div class="gameboy-screen-border">
+                <div class="gameboy-screen-bg"></div>
+                <div class="gameboy-screen-container">
+                    <canvas id="gameboy-screen" width="160" height="144">
+                    </canvas>
+                </div>
+                <div id="power-led" class="power-led-off">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import {
+            registerCanvas,
+            registerFileDropOn,
+            initialize
+        } from "./script.js";
+
+        let gb     = document.getElementById("gameboy-case");
+        let canvas = document.getElementById("gameboy-screen");
+
+        registerFileDropOn(gb);
+        registerCanvas(canvas);
+        initialize();
+    </script>
+</body>
+</html>
