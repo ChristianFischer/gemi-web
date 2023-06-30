@@ -41,6 +41,20 @@ export class WasmPlayer {
 */
   next_frame(): void;
 /**
+* Open the audio channel to the emulator.
+* After doing so, audio samples may be received via [take_audio_samples].
+* @param {number} sample_rate
+*/
+  open_audio(sample_rate: number): void;
+/**
+* Takes all pending audio samples from the audio channel.
+* This channel has to be opened via [open_audio] first.
+* All pending samples will be put together into a continuous array with alternating between
+* left and right channel samples.
+* @returns {Float32Array}
+*/
+  take_audio_samples(): Float32Array;
+/**
 * Set the pressed state of a key.
 * `key` is the key identifier as provided by the JS key event and will be mapped into
 * the corresponding emulator [InputButton] value.
@@ -57,16 +71,18 @@ export interface InitOutput {
   readonly __wbg_wasmplayer_free: (a: number) => void;
   readonly wasmplayer_create_with_cartridge: (a: number, b: number, c: number) => void;
   readonly wasmplayer_next_frame: (a: number, b: number) => void;
+  readonly wasmplayer_open_audio: (a: number, b: number, c: number) => void;
+  readonly wasmplayer_take_audio_samples: (a: number, b: number) => void;
   readonly wasmplayer_set_key_pressed: (a: number, b: number, c: number, d: number) => void;
   readonly __wbg_cartridge_free: (a: number) => void;
   readonly cartridge_load_from_bytes: (a: number, b: number, c: number) => void;
   readonly cartridge_get_title: (a: number, b: number) => void;
   readonly cartridge_is_gbc: (a: number) => number;
-  readonly __wbindgen_add_to_stack_pointer: (a: number) => number;
-  readonly __wbindgen_malloc: (a: number) => number;
-  readonly __wbindgen_realloc: (a: number, b: number, c: number) => number;
-  readonly __wbindgen_free: (a: number, b: number) => void;
   readonly __wbindgen_exn_store: (a: number) => void;
+  readonly __wbindgen_add_to_stack_pointer: (a: number) => number;
+  readonly __wbindgen_free: (a: number, b: number, c: number) => void;
+  readonly __wbindgen_malloc: (a: number, b: number) => number;
+  readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
 }
 
 export type SyncInitInput = BufferSource | WebAssembly.Module;

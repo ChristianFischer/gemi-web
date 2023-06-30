@@ -1,17 +1,30 @@
 import init, { Cartridge, WasmPlayer } from "./wasm/wasm-player.js";
 await init();
 
+const AUDIO_SAMPLE_RATE = 44100;
+const TARGET_FRAME_TIME = 1000 / 59.7;
 
 let canvas = null;
 let player = null;
 
+let audioCtx = null;
+let audioWorklet = null;
 
+let nextFrameTime = null;
+
+
+/**
+ * Initialize the setup and install some mandatory event listener.
+ */
 export function initialize() {
     document.addEventListener("keydown", onKeyDown);
     document.addEventListener("keyup",   onKeyUp);
 }
 
 
+/**
+ * Register the canvas which will receive the emulator screen's content.
+ */
 export function registerCanvas(c) {
     c.addEventListener("dblclick", onDoubleClick);
 
@@ -19,6 +32,9 @@ export function registerCanvas(c) {
 }
 
 
+/**
+ * Register a component which should react on file drag & drop events to load a file.
+ */
 export function registerFileDropOn(element) {
     element.addEventListener("dragover", canAllowDrop);
     element.addEventListener("drop",     onDrop);
@@ -26,13 +42,19 @@ export function registerFileDropOn(element) {
 }
 
 
+/**
+ * Checks if a drop event is valid.
+ */
 function canAllowDrop(ev) {
     ev.dataTransfer.dropEffect = "copy";
     ev.preventDefault();
 }
 
 
-function onDrop(ev) {
+/**
+ * React on drop events by trying to load a file.
+ */
+async function onDrop(ev) {
     ev.preventDefault();
 
     if (ev.dataTransfer.items) {
@@ -46,7 +68,10 @@ function onDrop(ev) {
 }
 
 
-function onClick(_ev) {
+/**
+ * OnClick event which will display a file open dialogue to load a file.
+ */
+async function onClick(_ev) {
     if (!player) {
         let input = document.createElement("input");
         input.type = "file";
@@ -61,11 +86,17 @@ function onClick(_ev) {
 }
 
 
+/**
+ * Reacts on double click events to switch a canvas into fullscreen.
+ */
 function onDoubleClick(_ev) {
     setCanvasFullScreen(true);
 }
 
 
+/**
+ * Global "KeyDown" event to forward input events to the emulator.
+ */
 function onKeyDown(ev) {
     if (player) {
         player.set_key_pressed(ev.key, true);
@@ -73,6 +104,9 @@ function onKeyDown(ev) {
 }
 
 
+/**
+ * Global "KeyUp" event to forward input events to the emulator.
+ */
 function onKeyUp(ev) {
     if (player) {
         player.set_key_pressed(ev.key, false);
@@ -80,43 +114,84 @@ function onKeyUp(ev) {
 }
 
 
-function tryLoadCartridge(file) {
+/**
+ * Tries to load a cartridge and instantiate a new emulator with that cartridge.
+ * @param file A file to be loaded.
+ */
+async function tryLoadCartridge(file) {
     // clear previous player
+    stopPlayer();
+
+    try {
+        let fileData = await file.arrayBuffer();
+        let bytes    = new Uint8Array(fileData);
+        let cart     = Cartridge.load_from_bytes(bytes);
+
+        player = WasmPlayer.create_with_cartridge(cart, canvas);
+        await startEmulatorAudio(player);
+        startMainLoop();
+    }
+    catch (e) {
+        alert("Failed to load Cartridge: " + e);
+    }
+}
+
+
+/**
+ * Stop a previous emulator instance, if any.
+ * The emulator player will be cleared after this.
+ */
+function stopPlayer() {
     if (player) {
         player.stop();
         player = null;
     }
 
-    let reader = new FileReader();
-    reader.readAsArrayBuffer(file);
-    reader.onloadend = function() {
-        try {
-            let result = reader.result;
-            if (result) {
-                let bytes = new Uint8Array(result);
-                let cart  = Cartridge.load_from_bytes(bytes);
-
-                player = WasmPlayer.create_with_cartridge(cart, canvas);
-                startMainLoop();
-            }
-        }
-        catch (e) {
-            alert("Failed to load Cartridge: " + e);
-        }
-    };
+    stopEmulatorAudio();
 }
 
 
+/**
+ * Start the emulator's main loop.
+ * This will continuously invoke 'mainloop' until being stopped.
+ */
 function startMainLoop() {
     setPowerLedOn(true);
 
+    nextFrameTime = window.performance.now();
     requestAnimationFrame(mainloop);
 }
 
 
+/**
+ * The main function of the emulator which will calculate a single frame,
+ * present its display content into the registered canvas and submits
+ * any audio samples created.
+ * This will being called continuously until being stopped.
+ */
 function mainloop() {
     if (player) {
-        player.next_frame();
+        // current time
+        let now = window.performance.now();
+
+        // checks if enough time has passed to calculate the next frame
+        if (now >= nextFrameTime) {
+            // run the emulator's CPU until a new frame was generated
+            player.next_frame();
+
+            // calculate the time for the next frame being created
+            nextFrameTime += TARGET_FRAME_TIME;
+        }
+
+        // if the audio context exists, take any generated audio samples
+        // and forward them into the audio worklet processor
+        if (audioWorklet) {
+            let samples = player.take_audio_samples();
+
+            if (samples.length !== 0) {
+                audioWorklet.port.postMessage({ id: "push-samples", samples: samples });
+            }
+        }
 
         requestAnimationFrame(mainloop);
     }
@@ -126,6 +201,9 @@ function mainloop() {
 }
 
 
+/**
+ * Invoked when the emulator has been stopped and the mainloop stops playing.
+ */
 function onMainLoopExit() {
     setPowerLedOn(false);
 
@@ -136,6 +214,65 @@ function onMainLoopExit() {
 }
 
 
+/**
+ * Create a new audio context, if necessary, and a new audio node for the current player
+ * to allow audio playback.
+ * @param player The emulator instance which sound will be played.
+ */
+async function startEmulatorAudio(player) {
+    try {
+        if (!audioCtx) {
+            // set up audio context
+            let newAudioCtx = new AudioContext({ sampleRate: AUDIO_SAMPLE_RATE });
+            await newAudioCtx.audioWorklet.addModule("./content/audio.js");
+
+            audioCtx = newAudioCtx;
+        }
+
+        // create the node responsible for the actual playback
+        audioWorklet = new AudioWorkletNode(
+            audioCtx,
+            "emulator-audio",
+            {
+                numberOfInputs: 0,
+                numberOfOutputs: 1,
+                channelCount: 2,
+                processorOptions: {
+                }
+            }
+        );
+
+        // connect the node into the audio context
+        audioWorklet.connect(audioCtx.destination);
+
+        // open the channel from the emulator backend
+        player.open_audio(AUDIO_SAMPLE_RATE);
+    }
+    catch(e) {
+        console.log("Failed to start AudioPlayer: " + e);
+    }
+}
+
+
+/**
+ * Stops the audio playback and clears any remaining audio context and nodes.
+ */
+function stopEmulatorAudio() {
+    if (audioWorklet) {
+        audioWorklet = null;
+    }
+
+    if (audioCtx) {
+        audioCtx.close();
+        audioCtx = null;
+    }
+}
+
+
+/**
+ * Switch or leave fullscreen.
+ * @param fs Whether to enable or disable fullscreen mode.
+ */
 function setCanvasFullScreen(fs) {
     if (fs) {
         if (canvas && player) {
@@ -152,6 +289,10 @@ function setCanvasFullScreen(fs) {
 }
 
 
+/**
+ * Change the power LED to display either 'on' or 'off'.
+ * @param on Whether to enable or disable the power LED.
+ */
 function setPowerLedOn(on) {
     let led = document.getElementById("power-led");
     if (led) {
