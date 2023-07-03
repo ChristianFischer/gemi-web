@@ -6,7 +6,7 @@
 
 .gameboy-case {
     text-align: center;
-    font-size: 25px;
+    font-size: 12px;
     padding: 20px 20px 40px 20px;
     margin: 20px;
     border-radius: 8px 8px 0 0;
@@ -17,6 +17,7 @@
     );
     transform-origin: top center;
     scale: 2;
+    z-index: 0;
 }
 
 .gameboy-screen-border {
@@ -78,4 +79,84 @@ canvas {
     margin: 0;
     padding: 0;
     box-shadow: inset 0 0 5px #306430;
+}
+
+
+.menu-overlay-container {
+    grid-column: 2;
+    grid-row: 2;
+
+    display: grid;
+    grid-template-columns: 100%;
+    grid-template-rows: 15% 70% 15%;
+
+    transition: all ease 250ms;
+    opacity: 0;
+}
+
+.menu-overlay-container:hover {
+    opacity: 1;
+}
+
+.menu-overlay-container > * {
+    /* negate the scaling for the gameboy case */
+    z-index: 1;
+    scale: 0.5;
+    width: 200%;
+    height: 200%;
+    transform: translate(-50%, -50%);
+}
+
+
+.menu-overlay-background {
+    grid-column: 1;
+    grid-row: 1 / 4;
+    background-color: #222;
+    opacity: 0.25;
+    z-index: 0;
+}
+
+.menu-bar-bottom-background {
+    grid-column: 1;
+    grid-row: 3;
+    background-color: #666;
+    z-index: 1;
+    pointer-events: all;
+}
+
+.menu-bar-bottom-container {
+    grid-column: 1;
+    grid-row: 3;
+    display: flex;
+    align-items: center;
+}
+
+.gameboy-controls-left, .gameboy-controls-right {
+    grid-column: 1;
+    grid-row: 3;
+    margin-left: 8px;
+    margin-right: 8px;
+    width: 100%;
+    height: 100%;
+
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+}
+
+.gameboy-controls-left {
+    justify-content: flex-start;
+}
+
+.gameboy-controls-right {
+    justify-content: flex-end;
+}
+
+.gameboy-controls-right > * {
+}
+
+
+input {
+    z-index: 10;
 }

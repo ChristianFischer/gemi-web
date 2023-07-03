@@ -9,8 +9,12 @@ let player = null;
 
 let audioCtx = null;
 let audioWorklet = null;
+let audioGainNode = null;
 
 let nextFrameTime = null;
+
+let isPaused = false;
+let currentVolume = 0.10;
 
 
 /**
@@ -152,6 +156,23 @@ function stopPlayer() {
 
 
 /**
+ * Checks whether the emulator is currently paused.
+ * If there's currently no emulator running, this also returns true.
+ */
+export function isEmulatorPaused() {
+    return !player || isPaused;
+}
+
+
+/**
+ * Set the emulator's paused state.
+ */
+export function setEmulatorPaused(paused) {
+    isPaused = paused;
+}
+
+
+/**
  * Start the emulator's main loop.
  * This will continuously invoke 'mainloop' until being stopped.
  */
@@ -229,6 +250,10 @@ async function startEmulatorAudio(player) {
             audioCtx = newAudioCtx;
         }
 
+        // create the gain node to control the audio volume
+        audioGainNode = audioCtx.createGain();
+        audioGainNode.gain.setValueAtTime(currentVolume, audioCtx.currentTime);
+
         // create the node responsible for the actual playback
         audioWorklet = new AudioWorkletNode(
             audioCtx,
@@ -243,7 +268,8 @@ async function startEmulatorAudio(player) {
         );
 
         // connect the node into the audio context
-        audioWorklet.connect(audioCtx.destination);
+        audioGainNode.connect(audioCtx.destination);
+        audioWorklet.connect(audioGainNode);
 
         // open the channel from the emulator backend
         player.open_audio(AUDIO_SAMPLE_RATE);
@@ -258,13 +284,32 @@ async function startEmulatorAudio(player) {
  * Stops the audio playback and clears any remaining audio context and nodes.
  */
 function stopEmulatorAudio() {
-    if (audioWorklet) {
-        audioWorklet = null;
-    }
-
     if (audioCtx) {
         audioCtx.close();
         audioCtx = null;
+    }
+
+    audioGainNode = null;
+    audioWorklet = null;
+}
+
+
+/**
+ * Get the current volume configured for emulator audio.
+ */
+export function getVolume() {
+    return currentVolume * 100;
+}
+
+
+/**
+ * Chance the volume for emulator audio.
+ */
+export function setVolume(volume) {
+    currentVolume = volume / 100.0;
+
+    if (audioGainNode) {
+        audioGainNode.gain.setValueAtTime(currentVolume, audioCtx.currentTime);
     }
 }
 

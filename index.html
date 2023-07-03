@@ -15,6 +15,25 @@
                     <canvas id="gameboy-screen" width="160" height="144">
                     </canvas>
                 </div>
+                <div class="menu-overlay-container">
+                    <div class="menu-overlay-background">
+                    </div>
+                    <div class="menu-bar-bottom-background">
+                    </div>
+                    <div class="menu-bar-bottom-container">
+                        <div class="gameboy-controls-left">
+                            <!--
+                            <input id="button-pause" type="button" value="&#x23f5;">
+                            -->
+                        </div>
+                    </div>
+                    <div class="menu-bar-bottom-container">
+                        <div class="gameboy-controls-right">
+                            <span>&#x1f50a;</span>
+                            <input id="volume-control" type="range" style="width: 40%;">
+                        </div>
+                    </div>
+                </div>
                 <div id="power-led" class="power-led-off">
                 </div>
             </div>
@@ -25,15 +44,42 @@
         import {
             registerCanvas,
             registerFileDropOn,
-            initialize
+            initialize,
+            isEmulatorPaused,
+            setEmulatorPaused,
+            getVolume,
+            setVolume,
         } from "./content/script.js";
 
-        let gb     = document.getElementById("gameboy-case");
-        let canvas = document.getElementById("gameboy-screen");
+        let gb          = document.getElementById("gameboy-case");
+        let canvas      = document.getElementById("gameboy-screen");
+        let bt_pause    = document.getElementById("button-pause");
+        let volume_ctrl = document.getElementById("volume-control");
 
         registerFileDropOn(gb);
         registerCanvas(canvas);
         initialize();
+
+        /*
+        // handle click to pause/unpause
+        bt_pause.addEventListener("click", function(ev) {
+            if (isEmulatorPaused()) {
+                setEmulatorPaused(false);
+                bt_pause.value = "&#x23f5;";
+            }
+            else {
+                setEmulatorPaused(true);
+                bt_pause.value = "&#x23f8;";
+            }
+        });
+        */
+
+        // handle volume change
+        volume_ctrl.value = getVolume();
+        volume_ctrl.addEventListener("change", function(_ev) {
+            let v = volume_ctrl.value;
+            setVolume(v);
+        });
     </script>
 </body>
 </html>
