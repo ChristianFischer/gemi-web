@@ -167,8 +167,21 @@ export function isEmulatorPaused() {
 /**
  * Set the emulator's paused state.
  */
-export function setEmulatorPaused(paused) {
+export async function setEmulatorPaused(paused) {
     isPaused = paused;
+
+    // reset 'nextFrameTime' so the next frame should be produced immediately
+    nextFrameTime = window.performance.now();
+
+    // pause or resume audio
+    if (audioCtx) {
+        if (isPaused) {
+            await audioCtx.suspend();
+        }
+        else {
+            await audioCtx.resume();
+        }
+    }
 }
 
 
@@ -192,25 +205,27 @@ function startMainLoop() {
  */
 function mainloop() {
     if (player) {
-        // current time
-        let now = window.performance.now();
+        if (!isPaused) {
+            // current time
+            let now = window.performance.now();
 
-        // checks if enough time has passed to calculate the next frame
-        if (now >= nextFrameTime) {
-            // run the emulator's CPU until a new frame was generated
-            player.next_frame();
+            // checks if enough time has passed to calculate the next frame
+            if (now >= nextFrameTime) {
+                // run the emulator's CPU until a new frame was generated
+                player.next_frame();
 
-            // calculate the time for the next frame being created
-            nextFrameTime += TARGET_FRAME_TIME;
-        }
+                // calculate the time for the next frame being created
+                nextFrameTime += TARGET_FRAME_TIME;
+            }
 
-        // if the audio context exists, take any generated audio samples
-        // and forward them into the audio worklet processor
-        if (audioWorklet) {
-            let samples = player.take_audio_samples();
+            // if the audio context exists, take any generated audio samples
+            // and forward them into the audio worklet processor
+            if (audioWorklet) {
+                let samples = player.take_audio_samples();
 
-            if (samples.length !== 0) {
-                audioWorklet.port.postMessage({ id: "push-samples", samples: samples });
+                if (samples.length !== 0) {
+                    audioWorklet.port.postMessage({ id: "push-samples", samples: samples });
+                }
             }
         }
 

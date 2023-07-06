@@ -25,12 +25,11 @@
                             <!--
                             <input id="button-pause" type="button" value="&#x23f5;">
                             -->
+                            <button id="button-pause">&#xFE0E;&#x23f8;</button>
                         </div>
-                    </div>
-                    <div class="menu-bar-bottom-container">
                         <div class="gameboy-controls-right">
                             <span>&#x1f50a;</span>
-                            <input id="volume-control" type="range" style="width: 40%;">
+                            <input id="volume-control" type="range" style="width: 128px;">
                         </div>
                     </div>
                 </div>
@@ -60,25 +59,31 @@
         registerCanvas(canvas);
         initialize();
 
-        /*
         // handle click to pause/unpause
         bt_pause.addEventListener("click", function(ev) {
             if (isEmulatorPaused()) {
                 setEmulatorPaused(false);
-                bt_pause.value = "&#x23f5;";
+                bt_pause.innerHTML = "&#xFE0E;&#x23f8;";
             }
             else {
                 setEmulatorPaused(true);
-                bt_pause.value = "&#x23f8;";
+                bt_pause.innerHTML = "&#xFE0E;&#x23f5;";
             }
+
+            ev.stopPropagation();
         });
-        */
 
         // handle volume change
         volume_ctrl.value = getVolume();
-        volume_ctrl.addEventListener("change", function(_ev) {
+        volume_ctrl.addEventListener("click", function(ev) {
+            ev.stopPropagation();
+        })
+        volume_ctrl.addEventListener("input", function(ev) {
             let v = volume_ctrl.value;
             setVolume(v);
+
+            ev.stopPropagation();
+            ev.preventDefault();
         });
     </script>
 </body>
