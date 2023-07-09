@@ -16,16 +16,16 @@
                     </canvas>
                 </div>
                 <div class="menu-overlay-container">
-                    <div class="menu-overlay-background">
+                    <div id="menu-overlay-background" class="menu-overlay-background">
+                    </div>
+                    <div class="menu-bar-top-container">
+                        <p id="game-title" class="game-title"></p>
                     </div>
                     <div class="menu-bar-bottom-background">
                     </div>
                     <div class="menu-bar-bottom-container">
                         <div class="gameboy-controls-left">
-                            <!--
-                            <input id="button-pause" type="button" value="&#x23f5;">
-                            -->
-                            <button id="button-pause">&#xFE0E;&#x23f8;</button>
+                            <button id="button-pause">X</button>
                         </div>
                         <div class="gameboy-controls-right">
                             <span>&#x1f50a;</span>
@@ -40,51 +40,80 @@
     </div>
 
     <script type="module">
-        import {
-            registerCanvas,
-            registerFileDropOn,
-            initialize,
-            isEmulatorPaused,
-            setEmulatorPaused,
-            getVolume,
-            setVolume,
-        } from "./content/script.js";
+        import { EmulatorGlue } from "./content/script.js";
+        let emu = new EmulatorGlue();
 
-        let gb          = document.getElementById("gameboy-case");
+        const SYMBOL_PLAY  = "&#xFE0E;&#x23f5;";
+        const SYMBOL_PAUSE = "&#xFE0E;&#x23f8;";
+
+        let gb_case     = document.getElementById("gameboy-case");
         let canvas      = document.getElementById("gameboy-screen");
         let bt_pause    = document.getElementById("button-pause");
         let volume_ctrl = document.getElementById("volume-control");
+        let power_led   = document.getElementById("power-led");
+        let overlay     = document.getElementById("menu-overlay-background");
 
-        registerFileDropOn(gb);
-        registerCanvas(canvas);
-        initialize();
+        emu.registerFileDropOn(gb_case);
+        emu.registerClickToOpenOn(gb_case);
+        emu.registerCanvas(canvas);
+        emu.registerKeyEvents();
 
         // handle click to pause/unpause
-        bt_pause.addEventListener("click", function(ev) {
-            if (isEmulatorPaused()) {
-                setEmulatorPaused(false);
-                bt_pause.innerHTML = "&#xFE0E;&#x23f8;";
-            }
-            else {
-                setEmulatorPaused(true);
-                bt_pause.innerHTML = "&#xFE0E;&#x23f5;";
-            }
+        {
+            bt_pause.innerHTML = SYMBOL_PLAY;
+            bt_pause.addEventListener("click", (ev) => {
+                if (emu.isEmulatorPaused()) {
+                    emu.setEmulatorPaused(false);
+                    bt_pause.innerHTML = SYMBOL_PAUSE;
+                }
+                else {
+                    emu.setEmulatorPaused(true);
+                    bt_pause.innerHTML = SYMBOL_PLAY;
+                }
 
-            ev.stopPropagation();
-        });
+                ev.stopPropagation();
+            });
+        }
 
         // handle volume change
-        volume_ctrl.value = getVolume();
-        volume_ctrl.addEventListener("click", function(ev) {
-            ev.stopPropagation();
-        })
-        volume_ctrl.addEventListener("input", function(ev) {
-            let v = volume_ctrl.value;
-            setVolume(v);
+        {
+            volume_ctrl.value = emu.getVolume();
+            volume_ctrl.addEventListener("click", (ev) => {
+                ev.stopPropagation();
+            })
+            volume_ctrl.addEventListener("input", (ev) => {
+                let v = volume_ctrl.value;
+                emu.setVolume(v);
 
-            ev.stopPropagation();
-            ev.preventDefault();
-        });
+                ev.stopPropagation();
+                ev.preventDefault();
+            });
+        }
+
+        // double-click on the overlay background to enter fullscreen
+        {
+            overlay.addEventListener("dblclick", (_ev) => {
+                emu.setCanvasFullScreen(true);
+            });
+        }
+
+        // react on rom start / end
+        {
+            emu.onRomStarted = (name) => {
+                let game_title_field = document.getElementById("game-title");
+                if (game_title_field) {
+                    game_title_field.innerText = name;
+                }
+
+                power_led.className = "power-led-on";
+                bt_pause.innerHTML = SYMBOL_PAUSE;
+            }
+
+            emu.onRomEnded = () => {
+                power_led.className = "power-led-off";
+                bt_pause.innerHTML  = SYMBOL_PLAY;
+            }
+        }
     </script>
 </body>
 </html>

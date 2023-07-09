@@ -4,358 +4,359 @@ await init();
 const AUDIO_SAMPLE_RATE = 44100;
 const TARGET_FRAME_TIME = 1000 / 59.7;
 
-let canvas = null;
-let player = null;
-
-let audioCtx = null;
-let audioWorklet = null;
-let audioGainNode = null;
-
-let nextFrameTime = null;
-
-let isPaused = false;
-let currentVolume = 0.10;
-
 
 /**
- * Initialize the setup and install some mandatory event listener.
+ * A utility class to connect the HTML/JS frontend with the WASM backend.
  */
-export function initialize() {
-    document.addEventListener("keydown", onKeyDown);
-    document.addEventListener("keyup",   onKeyUp);
-}
+export class EmulatorGlue {
+    canvas          = null;
+    player          = null;
+
+    audioCtx        = null;
+    audioWorklet    = null;
+    audioGainNode   = null;
+    nextFrameTime   = null;
+
+    isPaused        = false;
+    currentVolume   = 0.10;
+
+    onRomStarted    = null;
+    onRomEnded      = null;
 
 
-/**
- * Register the canvas which will receive the emulator screen's content.
- */
-export function registerCanvas(c) {
-    c.addEventListener("dblclick", onDoubleClick);
-
-    canvas = c;
-}
+    constructor() {
+    }
 
 
-/**
- * Register a component which should react on file drag & drop events to load a file.
- */
-export function registerFileDropOn(element) {
-    element.addEventListener("dragover", canAllowDrop);
-    element.addEventListener("drop",     onDrop);
-    element.addEventListener("click",    onClick)
-}
+    /**
+     * Register the canvas which will receive the emulator screen's content.
+     */
+    registerCanvas(c) {
+        this.canvas = c;
+    }
 
 
-/**
- * Checks if a drop event is valid.
- */
-function canAllowDrop(ev) {
-    ev.dataTransfer.dropEffect = "copy";
-    ev.preventDefault();
-}
-
-
-/**
- * React on drop events by trying to load a file.
- */
-async function onDrop(ev) {
-    ev.preventDefault();
-
-    if (ev.dataTransfer.items) {
-        [... ev.dataTransfer.items].forEach((item, _i) => {
-            if (item.kind === "file") {
-                const file = item.getAsFile();
-                tryLoadCartridge(file);
+    /**
+     * Register a component which should react on file drag & drop events to load a file.
+     */
+    registerFileDropOn(element) {
+        element.addEventListener(
+            "dragover",
+            (ev) => {
+                ev.dataTransfer.dropEffect = "copy";
+                ev.preventDefault();
             }
-        })
-    }
-}
+        );
 
+        element.addEventListener(
+            "drop",
+            (ev) => {
+                ev.preventDefault();
 
-/**
- * OnClick event which will display a file open dialogue to load a file.
- */
-async function onClick(_ev) {
-    if (!player) {
-        let input = document.createElement("input");
-        input.type = "file";
-        input.onchange = function (_ev2) {
-            [... input.files].forEach((file) => {
-                tryLoadCartridge(file);
-            })
-        };
-
-        input.click();
-    }
-}
-
-
-/**
- * Reacts on double click events to switch a canvas into fullscreen.
- */
-function onDoubleClick(_ev) {
-    setCanvasFullScreen(true);
-}
-
-
-/**
- * Global "KeyDown" event to forward input events to the emulator.
- */
-function onKeyDown(ev) {
-    if (player) {
-        player.set_key_pressed(ev.key, true);
-    }
-}
-
-
-/**
- * Global "KeyUp" event to forward input events to the emulator.
- */
-function onKeyUp(ev) {
-    if (player) {
-        player.set_key_pressed(ev.key, false);
-    }
-}
-
-
-/**
- * Tries to load a cartridge and instantiate a new emulator with that cartridge.
- * @param file A file to be loaded.
- */
-async function tryLoadCartridge(file) {
-    // clear previous player
-    stopPlayer();
-
-    try {
-        let fileData = await file.arrayBuffer();
-        let bytes    = new Uint8Array(fileData);
-        let cart     = Cartridge.load_from_bytes(bytes);
-
-        player = WasmPlayer.create_with_cartridge(cart, canvas);
-        await startEmulatorAudio(player);
-        startMainLoop();
-    }
-    catch (e) {
-        alert("Failed to load Cartridge: " + e);
-    }
-}
-
-
-/**
- * Stop a previous emulator instance, if any.
- * The emulator player will be cleared after this.
- */
-function stopPlayer() {
-    if (player) {
-        player.stop();
-        player = null;
-    }
-
-    stopEmulatorAudio();
-}
-
-
-/**
- * Checks whether the emulator is currently paused.
- * If there's currently no emulator running, this also returns true.
- */
-export function isEmulatorPaused() {
-    return !player || isPaused;
-}
-
-
-/**
- * Set the emulator's paused state.
- */
-export async function setEmulatorPaused(paused) {
-    isPaused = paused;
-
-    // reset 'nextFrameTime' so the next frame should be produced immediately
-    nextFrameTime = window.performance.now();
-
-    // pause or resume audio
-    if (audioCtx) {
-        if (isPaused) {
-            await audioCtx.suspend();
-        }
-        else {
-            await audioCtx.resume();
-        }
-    }
-}
-
-
-/**
- * Start the emulator's main loop.
- * This will continuously invoke 'mainloop' until being stopped.
- */
-function startMainLoop() {
-    setPowerLedOn(true);
-
-    nextFrameTime = window.performance.now();
-    requestAnimationFrame(mainloop);
-}
-
-
-/**
- * The main function of the emulator which will calculate a single frame,
- * present its display content into the registered canvas and submits
- * any audio samples created.
- * This will being called continuously until being stopped.
- */
-function mainloop() {
-    if (player) {
-        if (!isPaused) {
-            // current time
-            let now = window.performance.now();
-
-            // checks if enough time has passed to calculate the next frame
-            if (now >= nextFrameTime) {
-                // run the emulator's CPU until a new frame was generated
-                player.next_frame();
-
-                // calculate the time for the next frame being created
-                nextFrameTime += TARGET_FRAME_TIME;
-            }
-
-            // if the audio context exists, take any generated audio samples
-            // and forward them into the audio worklet processor
-            if (audioWorklet) {
-                let samples = player.take_audio_samples();
-
-                if (samples.length !== 0) {
-                    audioWorklet.port.postMessage({ id: "push-samples", samples: samples });
+                if (ev.dataTransfer.items) {
+                    for (const item of [...ev.dataTransfer.items]) {
+                        if (item.kind === "file") {
+                            const file = item.getAsFile();
+                            this.tryLoadCartridge(file).then(() => { })
+                        }
+                    }
                 }
+
             }
-        }
-
-        requestAnimationFrame(mainloop);
+        );
     }
-    else {
-        onMainLoopExit();
+
+
+    /**
+     * Registers a component to react on click-events to open a ROM file.
+     */
+    registerClickToOpenOn(element) {
+        element.addEventListener(
+            "click",
+            (ev) => {
+                if (!this.player) {
+                    let input = document.createElement("input");
+                    input.type = "file";
+                    input.onchange = function (_ev2){
+                        for (const file of [...input.files]) {
+                            this.tryLoadCartridge(file).then(() => { });
+                        }
+                    }.bind(this);
+
+                    input.click();
+                }
+
+                ev.stopPropagation();
+            }
+        );
     }
-}
 
 
-/**
- * Invoked when the emulator has been stopped and the mainloop stops playing.
- */
-function onMainLoopExit() {
-    setPowerLedOn(false);
-
-    // on exit, leave fullscreen
-    setCanvasFullScreen(false);
-
-    player = null;
-}
-
-
-/**
- * Create a new audio context, if necessary, and a new audio node for the current player
- * to allow audio playback.
- * @param player The emulator instance which sound will be played.
- */
-async function startEmulatorAudio(player) {
-    try {
-        if (!audioCtx) {
-            // set up audio context
-            let newAudioCtx = new AudioContext({ sampleRate: AUDIO_SAMPLE_RATE });
-            await newAudioCtx.audioWorklet.addModule("./content/audio.js");
-
-            audioCtx = newAudioCtx;
-        }
-
-        // create the gain node to control the audio volume
-        audioGainNode = audioCtx.createGain();
-        audioGainNode.gain.setValueAtTime(currentVolume, audioCtx.currentTime);
-
-        // create the node responsible for the actual playback
-        audioWorklet = new AudioWorkletNode(
-            audioCtx,
-            "emulator-audio",
-            {
-                numberOfInputs: 0,
-                numberOfOutputs: 1,
-                channelCount: 2,
-                processorOptions: {
+    /**
+     * Initialize the setup and install some mandatory event listener.
+     */
+    registerKeyEvents() {
+        document.addEventListener(
+            "keydown",
+            (ev) => {
+                if (this.player) {
+                    this.player.set_key_pressed(ev.key, true);
                 }
             }
         );
 
-        // connect the node into the audio context
-        audioGainNode.connect(audioCtx.destination);
-        audioWorklet.connect(audioGainNode);
-
-        // open the channel from the emulator backend
-        player.open_audio(AUDIO_SAMPLE_RATE);
-    }
-    catch(e) {
-        console.log("Failed to start AudioPlayer: " + e);
-    }
-}
-
-
-/**
- * Stops the audio playback and clears any remaining audio context and nodes.
- */
-function stopEmulatorAudio() {
-    if (audioCtx) {
-        audioCtx.close();
-        audioCtx = null;
+        document.addEventListener(
+            "keyup",
+            (ev) => {
+                if (this.player) {
+                    this.player.set_key_pressed(ev.key, false);
+                }
+            }
+        );
     }
 
-    audioGainNode = null;
-    audioWorklet = null;
-}
 
+    /**
+     * Tries to load a cartridge and instantiate a new emulator with that cartridge.
+     * @param file A file to be loaded.
+     */
+    async tryLoadCartridge(file) {
+        // clear previous player
+        this.stopPlayer();
 
-/**
- * Get the current volume configured for emulator audio.
- */
-export function getVolume() {
-    return currentVolume * 100;
-}
+        try {
+            let fileData = await file.arrayBuffer();
+            let bytes    = new Uint8Array(fileData);
+            let cart     = Cartridge.load_from_bytes(bytes);
+            let name            = cart.get_title();
 
-
-/**
- * Chance the volume for emulator audio.
- */
-export function setVolume(volume) {
-    currentVolume = volume / 100.0;
-
-    if (audioGainNode) {
-        audioGainNode.gain.setValueAtTime(currentVolume, audioCtx.currentTime);
+            this.player = WasmPlayer.create_with_cartridge(cart, this.canvas);
+            await this.startEmulatorAudio(this.player);
+            this.startMainLoop();
+            this.fireOnRomStarted(name)
+        }
+        catch (e) {
+            alert("Failed to load Cartridge: " + e);
+        }
     }
-}
 
 
-/**
- * Switch or leave fullscreen.
- * @param fs Whether to enable or disable fullscreen mode.
- */
-function setCanvasFullScreen(fs) {
-    if (fs) {
-        if (canvas && player) {
-            canvas.requestFullscreen()
+    /**
+     * Stop a previous emulator instance, if any.
+     * The emulator player will be cleared after this.
+     */
+    stopPlayer() {
+        if (this.player) {
+            this.player.stop();
+            this.player = null;
+        }
+
+        this.stopEmulatorAudio();
+    }
+
+
+    /**
+     * Checks whether the emulator is currently paused.
+     * If there's currently no emulator running, this also returns true.
+     */
+    isEmulatorPaused() {
+        return !this.player || this.isPaused;
+    }
+
+
+    /**
+     * Set the emulator's paused state.
+     */
+    async setEmulatorPaused(paused) {
+        this.isPaused = paused;
+
+        // reset 'nextFrameTime' so the next frame should be produced immediately
+        this.nextFrameTime = window.performance.now();
+
+        // pause or resume audio
+        if (this.audioCtx) {
+            if (this.isPaused) {
+                await this.audioCtx.suspend();
+            }
+            else {
+                await this.audioCtx.resume();
+            }
+        }
+    }
+
+
+    /**
+     * Start the emulator's main loop.
+     * This will continuously invoke 'mainloop' until being stopped.
+     */
+    startMainLoop() {
+        this.nextFrameTime = window.performance.now();
+        requestAnimationFrame(() => { this.mainloop(); });
+    }
+
+
+    /**
+     * The main function of the emulator which will calculate a single frame,
+     * present its display content into the registered canvas and submits
+     * any audio samples created.
+     * This will being called continuously until being stopped.
+     */
+    mainloop() {
+        if (this.player) {
+            if (!this.isPaused) {
+                // current time
+                let now = window.performance.now();
+
+                // checks if enough time has passed to calculate the next frame
+                if (now >= this.nextFrameTime) {
+                    // run the emulator's CPU until a new frame was generated
+                    this.player.next_frame();
+
+                    // calculate the time for the next frame being created
+                    this.nextFrameTime += TARGET_FRAME_TIME;
+                }
+
+                // if the audio context exists, take any generated audio samples
+                // and forward them into the audio worklet processor
+                if (this.audioWorklet) {
+                    let samples = this.player.take_audio_samples();
+
+                    if (samples.length !== 0) {
+                        this.audioWorklet.port.postMessage({ id: "push-samples", samples: samples });
+                    }
+                }
+            }
+
+            requestAnimationFrame(() => { this.mainloop(); });
+        }
+        else {
+            this.onMainLoopExit();
+        }
+    }
+
+
+    /**
+     * Invoked when the emulator has been stopped and the mainloop stops playing.
+     */
+    onMainLoopExit() {
+        this.fireOnRomEnded();
+
+        // on exit, leave fullscreen
+        this.setCanvasFullScreen(false);
+
+        this.player = null;
+    }
+
+
+    /**
+     * Create a new audio context, if necessary, and a new audio node for the current player
+     * to allow audio playback.
+     * @param player The emulator instance which sound will be played.
+     */
+    async startEmulatorAudio(player) {
+        try {
+            if (!this.audioCtx) {
+                // set up audio context
+                let newAudioCtx = new AudioContext({ sampleRate: AUDIO_SAMPLE_RATE });
+                await newAudioCtx.audioWorklet.addModule("./content/audio.js");
+
+                this.audioCtx = newAudioCtx;
+            }
+
+            // create the gain node to control the audio volume
+            this.audioGainNode = this.audioCtx.createGain();
+            this.audioGainNode.gain.setValueAtTime(this.currentVolume, this.audioCtx.currentTime);
+
+            // create the node responsible for the actual playback
+            this.audioWorklet = new AudioWorkletNode(
+                this.audioCtx,
+                "emulator-audio",
+                {
+                    numberOfInputs: 0,
+                    numberOfOutputs: 1,
+                    channelCount: 2,
+                    processorOptions: {
+                    }
+                }
+            );
+
+            // connect the node into the audio context
+            this.audioGainNode.connect(this.audioCtx.destination);
+            this.audioWorklet.connect(this.audioGainNode);
+
+            // open the channel from the emulator backend
+            player.open_audio(AUDIO_SAMPLE_RATE);
+        }
+        catch(e) {
+            console.log("Failed to start AudioPlayer: " + e);
+        }
+    }
+
+
+    /**
+     * Stops the audio playback and clears any remaining audio context and nodes.
+     */
+    stopEmulatorAudio() {
+        if (this.audioCtx) {
+            this.audioCtx.close();
+            this.audioCtx = null;
+        }
+
+        this.audioGainNode = null;
+        this.audioWorklet = null;
+    }
+
+
+    /**
+     * Get the current volume configured for emulator audio.
+     */
+    getVolume() {
+        return this.currentVolume * 100;
+    }
+
+
+    /**
+     * Chance the volume for emulator audio.
+     */
+    setVolume(volume) {
+        this.currentVolume = volume / 100.0;
+
+        if (this.audioGainNode) {
+            this.audioGainNode.gain.setValueAtTime(this.currentVolume, this.audioCtx.currentTime);
+        }
+    }
+
+
+    /**
+     * Switch or leave fullscreen.
+     * @param fs Whether to enable or disable fullscreen mode.
+     */
+    setCanvasFullScreen(fs) {
+        if (fs) {
+            if (this.canvas && this.player) {
+                this.canvas.requestFullscreen()
+                    .then(() => { })
+                ;
+            }
+        }
+        else {
+            document.exitFullscreen()
                 .then(() => { })
             ;
         }
     }
-    else {
-        document.exitFullscreen()
-            .then(() => { })
-        ;
+
+
+    fireOnRomStarted(name) {
+        if (typeof(this.onRomStarted) === 'function') {
+            this.onRomStarted(name);
+        }
     }
-}
 
 
-/**
- * Change the power LED to display either 'on' or 'off'.
- * @param on Whether to enable or disable the power LED.
- */
-function setPowerLedOn(on) {
-    let led = document.getElementById("power-led");
-    if (led) {
-        led.className = on ? "power-led-on" : "power-led-off";
+    fireOnRomEnded() {
+        if (typeof(this.onRomEnded) === 'function') {
+            this.onRomEnded();
+        }
     }
 }

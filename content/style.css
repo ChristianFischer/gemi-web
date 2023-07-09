@@ -116,6 +116,21 @@ canvas {
     z-index: 0;
 }
 
+.menu-bar-top-container {
+    grid-column: 1;
+    grid-row: 1;
+}
+
+.game-title {
+    text-align: center;
+    vertical-align: middle;
+
+    font-family: sans-serif;
+    font-size: 24pt;
+    color: #222;
+    background-color: #666;
+}
+
 .menu-bar-bottom-background {
     grid-column: 1;
     grid-row: 3;
