@@ -1,3 +1,47 @@
+div.page-container {
+    display: flex;
+    height: 100vh;
+}
+
+div.page-content-container {
+    flex-grow: 1;
+}
+
+div.sidebar {
+    min-width: fit-content;
+    display: flex;
+    flex-direction: column;
+    margin-top: 20px;
+}
+
+
+
+div.sidebar-box {
+    width: 100%;
+    border: 2px solid #ccc;
+    margin: 8px;
+}
+
+div.sidebar-box-header {
+    background-color: #ccc;
+    font-weight: bold;
+    text-align: center;
+    cursor: pointer;
+    padding: 4px;
+}
+
+div.sidebar-box-content {
+    overflow: hidden;
+    transition: max-height 0.2s ease-out;
+    max-height: 100vh;
+}
+
+div.sidebar-box-content > * {
+    width: 100%;
+}
+
+
+
 .gameboy-container {
     display: flex;
     flex-direction: column;
@@ -170,4 +214,53 @@ canvas {
 
 input, button {
     z-index: 10;
+}
+
+
+
+table.grid {
+    border-collapse: collapse;
+    border: none;
+}
+
+table.grid > tbody > tr > td {
+    padding: 5px;
+    text-align: center;
+    vertical-align: middle;
+    line-height: 1.5;
+}
+
+
+
+.keybindings {
+    align-content: center;
+}
+
+.key {
+    font-family: monospace;
+    font-weight: bold;
+    align-self: center;
+
+    padding: 0 4px;
+
+    background: #aaa;
+    border-top: 3px solid #ddd;
+    border-left: 3px solid #ddd;
+    border-right: 3px solid #888;
+    border-bottom: 3px solid #888;
+}
+
+.key.start {
+    border-radius: 8pt;
+}
+
+.key.ab {
+    background: #903;
+    color: #fff;
+
+    border-top: 3px solid #b03;
+    border-left: 3px solid #b03;
+    border-right: 3px solid #702;
+    border-bottom: 3px solid #702;
+    border-radius: 50%;
 }

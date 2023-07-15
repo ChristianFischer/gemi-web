@@ -7,33 +7,104 @@
 </head>
 
 <body>
-    <div class="gameboy-container">
-        <div id="gameboy-case" class="gameboy-case">
-            <div class="gameboy-screen-border">
-                <div class="gameboy-screen-bg"></div>
-                <div class="gameboy-screen-container">
-                    <canvas id="gameboy-screen" width="160" height="144">
-                    </canvas>
+    <div class="page-container">
+        <div class="sidebar">
+            <div class="sidebar-box">
+                <div class="sidebar-box-header" onclick="toggleBoxContent('box-keybindings')">
+                    Keybindings
                 </div>
-                <div class="menu-overlay-container">
-                    <div id="menu-overlay-background" class="menu-overlay-background">
-                    </div>
-                    <div class="menu-bar-top-container">
-                        <p id="game-title" class="game-title"></p>
-                    </div>
-                    <div class="menu-bar-bottom-background">
-                    </div>
-                    <div class="menu-bar-bottom-container">
-                        <div class="gameboy-controls-left">
-                            <button id="button-pause">X</button>
-                        </div>
-                        <div class="gameboy-controls-right">
-                            <span>&#x1f50a;</span>
-                            <input id="volume-control" type="range" style="width: 128px;">
-                        </div>
-                    </div>
+                <div id="box-keybindings" class="sidebar-box-content">
+                    <table class="grid keybindings">
+                        <tbody>
+                        <tr>
+                            <td>&#x2795;</td>
+                            <td>
+                                <span class="key">w</span><br>
+                                <span class="key">a</span>
+                                <span class="key">s</span>
+                                <span class="key">d</span>
+                            </td>
+                            <td>
+                                <span class="key">&#x2191;</span><br>
+                                <span class="key">&#x2190;</span>
+                                <span class="key">&#x2193;</span>
+                                <span class="key">&#x2192;</span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <span class="key ab">B</span>
+                                <span class="key ab">A</span>
+                            </td>
+                            <td>
+                                <span class="key">q</span>
+                                <span class="key">e</span>
+                            </td>
+                            <td>
+                                <span class="key">x</span>
+                                <span class="key">y</span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><span class="key start">Select</span></td>
+                            <td><span class="key">1</span></td>
+                            <td><span class="key">Enter</span></td>
+                        </tr>
+                        <tr>
+                            <td><span class="key start">Start</span></td>
+                            <td><span class="key">2</span></td>
+                            <td><span class="key">Shift</span></td>
+                        </tr>
+                        </tbody>
+                    </table>
                 </div>
-                <div id="power-led" class="power-led-off">
+            </div>
+
+            <script>
+                function toggleBoxContent(id) {
+                    let element = document.getElementById(id);
+                    if (element) {
+                        if (element.style.maxHeight) {
+                            element.style.maxHeight = null;
+                        }
+                        else {
+                            element.style.maxHeight = '0';
+                        }
+                    }
+                }
+            </script>
+        </div>
+
+        <div class="page-content-container">
+            <div class="gameboy-container">
+                <div id="gameboy-case" class="gameboy-case">
+                    <div class="gameboy-screen-border">
+                        <div class="gameboy-screen-bg"></div>
+                        <div class="gameboy-screen-container">
+                            <canvas id="gameboy-screen" width="160" height="144">
+                            </canvas>
+                        </div>
+                        <div class="menu-overlay-container">
+                            <div id="menu-overlay-background" class="menu-overlay-background">
+                            </div>
+                            <div class="menu-bar-top-container">
+                                <p id="game-title" class="game-title"></p>
+                            </div>
+                            <div class="menu-bar-bottom-background">
+                            </div>
+                            <div class="menu-bar-bottom-container">
+                                <div class="gameboy-controls-left">
+                                    <button id="button-pause">X</button>
+                                </div>
+                                <div class="gameboy-controls-right">
+                                    <span>&#x1f50a;</span>
+                                    <input id="volume-control" type="range" style="width: 128px;">
+                                </div>
+                            </div>
+                        </div>
+                        <div id="power-led" class="power-led-off">
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
