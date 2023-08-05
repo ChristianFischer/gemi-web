@@ -10,6 +10,34 @@
     <div class="page-container">
         <div class="sidebar">
             <div class="sidebar-box">
+                <div class="sidebar-box-header" onclick="toggleBoxContent('box-rom-select')">
+                    Select ROM
+                </div>
+                <div id="box-rom-select" class="sidebar-box-content">
+                    <div class="rom-select-entry first">
+                        <h1>GB 240p</h1>
+                        <p><a href="https://github.com/pinobatch/240p-test-mini">github.com/pinobatch/240p-test-mini</a></p>
+                        <button onclick="playRomFromUrl('roms/gb240p.gb')">&#xFE0E;&#x23f5;</button>
+                    </div>
+                    <div class="rom-select-entry">
+                        <h1>ACID 2 Test</h1>
+                        <p><a href="https://github.com/mattcurrie/cgb-acid2">github.com/mattcurrie/cgb-acid2</a></p>
+                        <button onclick="playRomFromUrl('roms/cgb-acid2.gbc')">&#xFE0E;&#x23f5;</button>
+                    </div>
+                    <div class="rom-select-entry">
+                        <h1>Obsolete Hardware Demo</h1>
+                        <p><a href="https://www.pouet.net/prod.php?which=54175">www.pouet.net/prod.php?which=54175</a></p>
+                        <button onclick="playRomFromUrl('roms/oh.gb')">&#xFE0E;&#x23f5;</button>
+                    </div>
+                    <div class="rom-select-entry">
+                        <h1>Is that a demo in your pocket?</h1>
+                        <p><a href="https://www.pouet.net/prod.php?which=65997">www.pouet.net/prod.php?which=65997</a></p>
+                        <button onclick="playRomFromUrl('roms/pocket.gb')">&#xFE0E;&#x23f5;</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sidebar-box">
                 <div class="sidebar-box-header" onclick="toggleBoxContent('box-keybindings')">
                     Keybindings
                 </div>
@@ -184,6 +212,11 @@
                 power_led.className = "power-led-off";
                 bt_pause.innerHTML  = SYMBOL_PLAY;
             }
+        }
+
+        // global function to allow to load ROMS from a URL.
+        window.playRomFromUrl = async function(url) {
+            await emu.tryLoadCartridgeFromUrl(url);
         }
     </script>
 </body>

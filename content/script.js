@@ -101,6 +101,7 @@ export class EmulatorGlue {
             (ev) => {
                 if (this.player) {
                     this.player.set_key_pressed(ev.key, true);
+                    ev.preventDefault();
                 }
             }
         );
@@ -110,6 +111,7 @@ export class EmulatorGlue {
             (ev) => {
                 if (this.player) {
                     this.player.set_key_pressed(ev.key, false);
+                    ev.preventDefault();
                 }
             }
         );
@@ -128,7 +130,7 @@ export class EmulatorGlue {
             let fileData = await file.arrayBuffer();
             let bytes    = new Uint8Array(fileData);
             let cart     = Cartridge.load_from_bytes(bytes);
-            let name            = cart.get_title();
+            let name     = cart.get_title();
 
             this.player = WasmPlayer.create_with_cartridge(cart, this.canvas);
             await this.startEmulatorAudio(this.player);
@@ -142,15 +144,29 @@ export class EmulatorGlue {
 
 
     /**
+     * Tries to load a cartridge from a web address and instantiate a
+     * new emulator with that cartridge.
+     * @param url The URL from where to load the cartridge.
+     */
+    async tryLoadCartridgeFromUrl(url) {
+        try {
+            let response = await fetch(url);
+            let data     = await response.blob();
+
+            await this.tryLoadCartridge(data);
+        }
+        catch (e) {
+            alert("Failed to load Cartridge: " + e);
+        }
+    }
+
+
+    /**
      * Stop a previous emulator instance, if any.
      * The emulator player will be cleared after this.
      */
     stopPlayer() {
-        if (this.player) {
-            this.player.stop();
-            this.player = null;
-        }
-
+        this.player = null;
         this.stopEmulatorAudio();
     }
 

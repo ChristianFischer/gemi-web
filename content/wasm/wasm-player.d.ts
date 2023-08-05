@@ -33,9 +33,20 @@ export class WasmPlayer {
 * where to send the frame data to.
 * @param {Cartridge} cartridge
 * @param {HTMLCanvasElement} canvas
+* @param {string | undefined} desired_device
 * @returns {WasmPlayer}
 */
-  static create_with_cartridge(cartridge: Cartridge, canvas: HTMLCanvasElement): WasmPlayer;
+  static create_with_cartridge(cartridge: Cartridge, canvas: HTMLCanvasElement, desired_device?: string): WasmPlayer;
+/**
+* Get the device type which is currently being emulated.
+* @returns {string}
+*/
+  get_device_type(): string;
+/**
+* Checks whether the emulator is currently running in GBC mode.
+* @returns {boolean}
+*/
+  is_gbc_mode(): boolean;
 /**
 * Process the next frame and publish it to the canvas.
 */
@@ -69,7 +80,9 @@ export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembl
 export interface InitOutput {
   readonly memory: WebAssembly.Memory;
   readonly __wbg_wasmplayer_free: (a: number) => void;
-  readonly wasmplayer_create_with_cartridge: (a: number, b: number, c: number) => void;
+  readonly wasmplayer_create_with_cartridge: (a: number, b: number, c: number, d: number, e: number) => void;
+  readonly wasmplayer_get_device_type: (a: number, b: number) => void;
+  readonly wasmplayer_is_gbc_mode: (a: number) => number;
   readonly wasmplayer_next_frame: (a: number, b: number) => void;
   readonly wasmplayer_open_audio: (a: number, b: number, c: number) => void;
   readonly wasmplayer_take_audio_samples: (a: number, b: number) => void;
@@ -80,9 +93,9 @@ export interface InitOutput {
   readonly cartridge_is_gbc: (a: number) => number;
   readonly __wbindgen_exn_store: (a: number) => void;
   readonly __wbindgen_add_to_stack_pointer: (a: number) => number;
-  readonly __wbindgen_free: (a: number, b: number, c: number) => void;
   readonly __wbindgen_malloc: (a: number, b: number) => number;
   readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
+  readonly __wbindgen_free: (a: number, b: number, c: number) => void;
 }
 
 export type SyncInitInput = BufferSource | WebAssembly.Module;
