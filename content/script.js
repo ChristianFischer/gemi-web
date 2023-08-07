@@ -4,6 +4,9 @@ await init();
 const AUDIO_SAMPLE_RATE = 44100;
 const TARGET_FRAME_TIME = 1000 / 59.7;
 
+// auto save each 5 minutes
+const AUTO_SAVE_TIMEOUT = 300000;
+
 
 /**
  * A utility class to connect the HTML/JS frontend with the WASM backend.
@@ -11,6 +14,7 @@ const TARGET_FRAME_TIME = 1000 / 59.7;
 export class EmulatorGlue {
     canvas          = null;
     player          = null;
+    romName         = null;
 
     audioCtx        = null;
     audioWorklet    = null;
@@ -23,8 +27,17 @@ export class EmulatorGlue {
     onRomStarted    = null;
     onRomEnded      = null;
 
+    saveTimeout     = AUTO_SAVE_TIMEOUT;
+    configDirty     = false;
+
 
     constructor() {
+        this.loadConfig();
+
+        window.addEventListener('beforeunload', (_e) => {
+            this.saveConfig();
+            this.serializeCartridgeRam();
+        });
     }
 
 
@@ -93,6 +106,45 @@ export class EmulatorGlue {
 
 
     /**
+     * Saves the current configuration to the local storage.
+     */
+    saveConfig() {
+        if (this.configDirty) {
+            localStorage.setItem(
+                "_config",
+                JSON.stringify({
+                    "volume": this.currentVolume
+                })
+            );
+
+            this.configDirty = false;
+        }
+    }
+
+
+    /**
+     * Loads the configuration from local storage.
+     */
+    loadConfig() {
+        try {
+            let config_string = localStorage.getItem("_config");
+            if (config_string) {
+                let config = JSON.parse(config_string);
+
+                if (config.hasOwnProperty("volume")) {
+                    this.currentVolume = config["volume"];
+                }
+            }
+
+            this.configDirty = false;
+        }
+        catch (e) {
+            console.log("Failed to load config: " + e);
+        }
+    }
+
+
+    /**
      * Initialize the setup and install some mandatory event listener.
      */
     registerKeyEvents() {
@@ -130,12 +182,24 @@ export class EmulatorGlue {
             let fileData = await file.arrayBuffer();
             let bytes    = new Uint8Array(fileData);
             let cart     = Cartridge.load_from_bytes(bytes);
-            let name     = cart.get_title();
+            this.romName = cart.get_title();
+
+            // try to load the cartridge RAM into the cartridge object
+            // before instantiating the emulator.
+            try {
+                let ram = this.deserializeCartridgeRam(this.romName);
+                if (ram) {
+                    cart.load_ram_from_bytes(ram);
+                }
+            }
+            catch(e) {
+                console.log("Failed to load cartridge RAM: " + e);
+            }
 
             this.player = WasmPlayer.create_with_cartridge(cart, this.canvas);
             await this.startEmulatorAudio(this.player);
             this.startMainLoop();
-            this.fireOnRomStarted(name)
+            this.fireOnRomStarted(this.romName)
         }
         catch (e) {
             alert("Failed to load Cartridge: " + e);
@@ -162,11 +226,56 @@ export class EmulatorGlue {
 
 
     /**
+     * Load the RAM image for a specific cartridge.
+     */
+    deserializeCartridgeRam(name) {
+        try {
+            let ram_as_str = localStorage.getItem(name);
+            if (ram_as_str) {
+                return JSON.parse(ram_as_str);
+            }
+        }
+        catch (e) {
+            console.log("Failed to deserialize cartridge RAM: " + e);
+        }
+
+        return null;
+    }
+
+
+    /**
+     * Save the emulator's current state into LocalStorage.
+     */
+    serializeCartridgeRam() {
+        if (this.player) {
+            let ram = this.player.save_cartridge_ram();
+
+            if (ram && this.romName) {
+                let ram_as_str = JSON.stringify(Array.from(ram));
+
+                localStorage.setItem(
+                    this.romName,
+                    ram_as_str
+                );
+            }
+        }
+    }
+
+
+    /**
      * Stop a previous emulator instance, if any.
      * The emulator player will be cleared after this.
      */
     stopPlayer() {
+        // save cartridge RAM before closing the player
+        if (this.player) {
+            this.serializeCartridgeRam();
+        }
+
+        // clear the player
         this.player = null;
+
+        // stop all audio
         this.stopEmulatorAudio();
     }
 
@@ -230,6 +339,18 @@ export class EmulatorGlue {
 
                     // calculate the time for the next frame being created
                     this.nextFrameTime += TARGET_FRAME_TIME;
+
+                    // update the auto save timeout
+                    this.saveTimeout -= TARGET_FRAME_TIME;
+
+                    // when the save timeout passed...
+                    if (this.saveTimeout <= 0) {
+                        // save the cartridge RAM
+                        this.serializeCartridgeRam();
+
+                        // and reset the timeout
+                        this.saveTimeout = AUTO_SAVE_TIMEOUT;
+                    }
                 }
 
                 // if the audio context exists, take any generated audio samples
@@ -335,10 +456,18 @@ export class EmulatorGlue {
      * Chance the volume for emulator audio.
      */
     setVolume(volume) {
-        this.currentVolume = volume / 100.0;
+        let newVolume = volume / 100.0;
 
-        if (this.audioGainNode) {
-            this.audioGainNode.gain.setValueAtTime(this.currentVolume, this.audioCtx.currentTime);
+        if (this.currentVolume !== newVolume) {
+            this.currentVolume = newVolume;
+            this.configDirty = true;
+
+            if (this.audioGainNode) {
+                this.audioGainNode.gain.setValueAtTime(
+                    this.currentVolume,
+                    this.audioCtx.currentTime
+                );
+            }
         }
     }
 

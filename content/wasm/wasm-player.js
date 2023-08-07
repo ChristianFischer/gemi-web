@@ -158,6 +158,11 @@ function getArrayF32FromWasm0(ptr, len) {
     return getFloat32Memory0().subarray(ptr / 4, ptr / 4 + len);
 }
 
+function getArrayU8FromWasm0(ptr, len) {
+    ptr = ptr >>> 0;
+    return getUint8Memory0().subarray(ptr / 1, ptr / 1 + len);
+}
+
 function passArray8ToWasm0(arg, malloc) {
     const ptr = malloc(arg.length * 1, 1) >>> 0;
     getUint8Memory0().set(arg, ptr / 1);
@@ -206,6 +211,25 @@ export class Cartridge {
                 throw takeObject(r1);
             }
             return Cartridge.__wrap(r0);
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+        }
+    }
+    /**
+    * Load the cartridge RAM from a byte array.
+    * @param {Uint8Array} bytes
+    */
+    load_ram_from_bytes(bytes) {
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            const ptr0 = passArray8ToWasm0(bytes, wasm.__wbindgen_malloc);
+            const len0 = WASM_VECTOR_LEN;
+            wasm.cartridge_load_ram_from_bytes(retptr, this.__wbg_ptr, ptr0, len0);
+            var r0 = getInt32Memory0()[retptr / 4 + 0];
+            var r1 = getInt32Memory0()[retptr / 4 + 1];
+            if (r1) {
+                throw takeObject(r0);
+            }
         } finally {
             wasm.__wbindgen_add_to_stack_pointer(16);
         }
@@ -373,6 +397,27 @@ export class WasmPlayer {
             }
             var v1 = getArrayF32FromWasm0(r0, r1).slice();
             wasm.__wbindgen_free(r0, r1 * 4);
+            return v1;
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+        }
+    }
+    /**
+    * If the current cartridge has a battery supported RAM,
+    * get the current RAM data as a byte array.
+    * @returns {Uint8Array | undefined}
+    */
+    save_cartridge_ram() {
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            wasm.wasmplayer_save_cartridge_ram(retptr, this.__wbg_ptr);
+            var r0 = getInt32Memory0()[retptr / 4 + 0];
+            var r1 = getInt32Memory0()[retptr / 4 + 1];
+            let v1;
+            if (r0 !== 0) {
+                v1 = getArrayU8FromWasm0(r0, r1).slice();
+                wasm.__wbindgen_free(r0, r1 * 1);
+            }
             return v1;
         } finally {
             wasm.__wbindgen_add_to_stack_pointer(16);

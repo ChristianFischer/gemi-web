@@ -12,6 +12,11 @@ export class Cartridge {
 */
   static load_from_bytes(bytes: Uint8Array): Cartridge;
 /**
+* Load the cartridge RAM from a byte array.
+* @param {Uint8Array} bytes
+*/
+  load_ram_from_bytes(bytes: Uint8Array): void;
+/**
 * Get the title of the cartridge.
 * @returns {string}
 */
@@ -66,6 +71,12 @@ export class WasmPlayer {
 */
   take_audio_samples(): Float32Array;
 /**
+* If the current cartridge has a battery supported RAM,
+* get the current RAM data as a byte array.
+* @returns {Uint8Array | undefined}
+*/
+  save_cartridge_ram(): Uint8Array | undefined;
+/**
 * Set the pressed state of a key.
 * `key` is the key identifier as provided by the JS key event and will be mapped into
 * the corresponding emulator [InputButton] value.
@@ -86,9 +97,11 @@ export interface InitOutput {
   readonly wasmplayer_next_frame: (a: number, b: number) => void;
   readonly wasmplayer_open_audio: (a: number, b: number, c: number) => void;
   readonly wasmplayer_take_audio_samples: (a: number, b: number) => void;
+  readonly wasmplayer_save_cartridge_ram: (a: number, b: number) => void;
   readonly wasmplayer_set_key_pressed: (a: number, b: number, c: number, d: number) => void;
   readonly __wbg_cartridge_free: (a: number) => void;
   readonly cartridge_load_from_bytes: (a: number, b: number, c: number) => void;
+  readonly cartridge_load_ram_from_bytes: (a: number, b: number, c: number, d: number) => void;
   readonly cartridge_get_title: (a: number, b: number) => void;
   readonly cartridge_is_gbc: (a: number) => number;
   readonly __wbindgen_exn_store: (a: number) => void;
