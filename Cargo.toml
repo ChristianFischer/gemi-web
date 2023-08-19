@@ -10,5 +10,5 @@ crate-type = [ "cdylib", "rlib" ]
 wasm-bindgen = "0.2.86"
 
 [dependencies.wasm-player]
-git = "https://github.com/ChristianFischer/gb-emu.git"
+git = "https://github.com/ChristianFischer/gemi.git"
 

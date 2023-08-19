@@ -1,6 +1,6 @@
 .PHONY: deps clean
 
-WASM_PROJECT_LOCAL_PATH	= ../gb-emu/bin/wasm-player
+WASM_PROJECT_LOCAL_PATH	= ../gemi/bin/wasm-player
 WWW_ROOT_PACKAGE_PATH	= content/wasm
 
 
